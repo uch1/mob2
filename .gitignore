@@ -1,0 +1,4 @@
+.DS_Store
+development/
+*.vscode/
+__pycache__/
