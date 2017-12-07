@@ -15,7 +15,7 @@ import pdb
 app = Flask(__name__)
 app.config['DEBUG'] = True
 
-mongo = MongoClient('mongodb://uchennaaguocha:LakersKobe2408@ds049084.mlab.com:49084/trip_planner_production')
+mongo = MongoClient('mongodb://uchenna:KobeLakers2408@ds049084.mlab.com:49084/trip_planner_production')
 app.db = mongo.trip_planner_production
 
 app.bcrypt_rounds = 12
@@ -29,14 +29,14 @@ def display_status(status_code, json=None):
     '''
     return (json, status_code, None)
 # TODO: look at this function
-def check_user(username, password):
+def check_user(email, password):
         users_collection = app.db.users
-        user = users_collection.find_one( {'email': username} )
+        user = users_collection.find_one( {'email': email} )
 
         if user is None:
             return False
-    
-        if bcrypt.checkpw(passwordcl.encode('utf-8'), user['password']):
+
+        if bcrypt.checkpw(password.encode('utf-8'), user['password']):
             user.pop('password')
             return True
         else:
@@ -82,6 +82,9 @@ def request_auth(http_method):
 
 class User(Resource):
 
+    def __init__(self):
+        self.users_collection = app.db.users
+
     def post(self):
         '''
         Creates a new user
@@ -91,9 +94,9 @@ class User(Resource):
         email = new_user['email']
         password = new_user['password']
 
-        users_collection = app.db.users
+        # users_collection = app.db.users
         # users = users_collection.find_one( {"_id": ObjectId(result.inserted_id)} )
-        user = users_collection.find_one( {"email": email} )
+        user = self.users_collection.find_one( {"email": email} )
 
 
         # if email != user['email']:
@@ -104,12 +107,13 @@ class User(Resource):
                 encoded_password, bcrypt.gensalt(app.bcrypt_rounds)
             )
             new_user['password'] = hashed_password
-            results = users_collection.insert_one(new_user)
             new_user.pop('password')
+
+            results = self.users_collection.insert_one(new_user)
             return(new_user, 200, None)
         else:
             return("Email is already taken", 409, None)
-        
+
         #1 Fetch password from request.json
         #2 Fetch email and check if user already exists, emails should be unique
 
@@ -156,7 +160,7 @@ class User(Resource):
         #
         # return (new_user, 200, None)
 
-            
+
     @request_auth
     def get(self):
         '''
@@ -167,64 +171,60 @@ class User(Resource):
         # if not user:
         #   return()
         # pdb.set_trace()
-        users_collection = app.db.users
+        # users_collection = app.db.users
         email = request.authorization.username
-        user = users_collection.find_one( {"email": email} )
+        user = self.users_collection.find_one( {"email": email} )
         user.pop('password')
         return (user, 200, None)
 
+    @request_auth
     def patch(self):
         '''
         Updates a specific user
         '''
         #JSON body
-        user = request.json
-
-        users_collection = app.db.users
-
+        email = reqest.authorization.email
+        new_email = request.json["new_email"]
+        # users_collection = app.db.users
         #name = request.args.get("name")
-
-        user = users_collection.find_one_and_update(
-            {"name": name},
-            {"$set": user}
+        user = self.users_collection.find_one_and_update(
+                {"email": email},
+                {"$set": {"email": new_email} }
             )
 
-        if user == None:
-            response = jsonify(data=[])
-            response.status_code = 404
-            return response
-        else:
-            return (user, 200, None)
+        # if user == None:
+        #     response = jsonify(data=[])
+        #     response.status_code = 404
+        #     return
+        # else:
+        # return (user, 200, None)
 
-    def put(self, user_id):
+    @request_auth
+    def put(self):
         '''Find a user ID and replace it with a new ID'''
-        user = request.json
-
-        users_collection = app.db.users
-
-        user = users_collection.find_one_and_replace(
-            {"_id": ObjectId(user_id)},
+        new_email = request.json["new_email"]
+        # users_collection = app.db.users
+        user = self.users_collection.find_one_and_replace(
+            {"email": new_email}
         )
 
-        if user is None:
-            response = jsonify(data=[])
-            response.status_code = 404
-            return response
-        else:
-            return (user, 200, None)
-    def delete(self, user_id):
+        # if user is None:
+        #     response = jsonify(data=[])
+        #     response.status_code = 404
+        #     return response
+        # else:
+        #     return (user, 200, None)
+
+    @request_auth
+    def delete(self):
         '''
         Deletes a specific user by their id or name
         '''
-        users_collection = app.db.users
+        # users_collection = app.db.users
 
-        name = request.args.get("name")
-        user = users_collection.remove(
-        {
-            "_id": ObjectId(user_id),
-            "name": name
-        })
-        return (user, 200, None)
+        email = request.authorization.email
+        user = self.users_collection.remove({"email": email})
+        # return (user, 200, None)
 
 class Trip(Resource):
 
@@ -237,19 +237,23 @@ class Trip(Resource):
         return (trip, 200, None)
 
     def post(self):
-        new_trip = request.json
 
+        new_trip = request.json["trips"]
         trip = self.trip_collection.insert_one(new_trip)
 
-        find_trip = self.trip_collection.find_one({"_id": trip.insert_id })
-        return find_trip
-    def patch(self, user_id=None):
-        trip = request.json
+        trip_found = self.trip_collection.find_one({"_id": trip.insert_id })
+        return trip_found
+    # def patch(self, user_id=None):
+    #     trip = request.json
+    #
+    #     trip_collection = app.db.trips
 
-        trip_collection = app.db.trips
 
-
-
+    def delete(self):
+        '''Delete or removing a resource e.g. trips'''
+        email = request.args.get("email")
+        deleted_trip = self.trip_collection.remove{"email": email})
+        
 
 api = Api(app)
 api.add_resource(User, "/users")
